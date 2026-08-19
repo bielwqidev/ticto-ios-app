@@ -1,0 +1,40 @@
+name: Build Native iOS IPA
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install Dependencies
+        run: |
+          npm install
+          npx cap add ios
+          npx cap copy ios
+          npx cap sync ios
+
+      - name: Build iOS Project (Mach-O Binary)
+        run: |
+          cd ios/App
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos -archivePath App.xcarchive archive CODE_SIGNING_ALLOWED=NO
+          mkdir -p Payload
+          cp -r App.xcarchive/Products/Applications/App.app Payload/Ticto.app
+          zip -r Ticto.ipa Payload
+
+      - name: Upload Ticto.ipa Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ticto-Native-iOS-App
+          path: ios/App/Ticto.ipa
