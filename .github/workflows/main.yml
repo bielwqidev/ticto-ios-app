@@ -31,17 +31,22 @@ jobs:
           npx cap copy ios || true
           npx cap sync ios || true
 
-      - name: Inject Full iOS AppIcon & Build IPA
+      - name: Inject Full iOS AppIcon & Audio Bundle & Build IPA
         run: |
           cd ios/App
           rm -rf App/Assets.xcassets/AppIcon.appiconset
           cp -r ../../AppIcon.appiconset App/Assets.xcassets/AppIcon.appiconset
           
+          cp ../../som.mp3 App/som.mp3 || true
+          
           xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos -archivePath App.xcarchive archive CODE_SIGNING_ALLOWED=NO || true
+          
+          cp ../../som.mp3 App.xcarchive/Products/Applications/App.app/som.mp3 || cp ../../som.mp3 App.xcarchive/Products/Applications/*.app/som.mp3 || true
+          
           mkdir -p Payload
           cp -r App.xcarchive/Products/Applications/App.app Payload/Ticto.app || cp -r App.xcarchive/Products/Applications/*.app Payload/Ticto.app || true
           zip -r Ticto.ipa Payload
-          echo "IPA Native Build Finished with Full AppIcon!"
+          echo "IPA Native Build Finished with Audio Bundle!"
 
       - name: Upload Ticto.ipa Artifact
         uses: actions/upload-artifact@v4
