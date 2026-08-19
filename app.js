@@ -38,14 +38,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const ticketPresets = [34.74, 60.04, 60.04, 34.74, 97.00, 197.00];
 
-  function checkPermissionStatus() {
-    statusBadge.className = 'status-badge granted';
-    statusBadge.textContent = 'APP TICTO ATIVO ✅';
-    statusMessage.innerHTML = '✨ <strong>App Nativo iOS Ativo!</strong> As notificações de vendas deslizarão no topo do iPhone com o áudio oficial <code>som.mp3</code>!';
-    btnRequestPermission.style.display = 'none';
+  // Request Capacitor / Web Notification Permission
+  async function requestNotificationPermissions() {
+    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) {
+      try {
+        const result = await window.Capacitor.Plugins.LocalNotifications.requestPermissions();
+        console.log('[CAPACITOR] Permission result:', result);
+      } catch (e) {
+        console.error('[CAPACITOR] Error requesting permissions:', e);
+      }
+    } else if ('Notification' in window) {
+      Notification.requestPermission();
+    }
   }
 
+  function checkPermissionStatus() {
+    statusBadge.className = 'status-badge granted';
+    statusBadge.textContent = 'APP TICTO NATIVO ✅';
+    statusMessage.innerHTML = '✨ <strong>App Nativo iOS Ativo!</strong> As notificações chegarão na Tela de Bloqueio com som <code>som.mp3</code>!';
+    btnRequestPermission.style.display = 'block';
+    btnRequestPermission.textContent = '🔔 PERMITIR NOTIFICAÇÕES NO IPHONE';
+  }
+
+  btnRequestPermission.addEventListener('click', () => {
+    requestNotificationPermissions();
+    playNotificationSound();
+    triggerSingleTest();
+  });
+
   checkPermissionStatus();
+  requestNotificationPermissions();
 
   function playNotificationSound() {
     try {
@@ -111,7 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 4500);
   }
 
-  function sendNativeNotification(data) {
+  async function sendNativeNotification(data) {
     const pay = data.pagamento || 'Pix';
     let messageText = `Venda aprovada no ${pay}! Comissão: R$ ${data.comissao} | Pedido: ${data.pedido}`;
     if (pay === 'Boleto') {
@@ -119,6 +141,34 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     playNotificationSound();
+
+    // 1. Capacitor Native iOS LocalNotification (Triggers Lock Screen / OS Banner)
+    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) {
+      try {
+        await window.Capacitor.Plugins.LocalNotifications.schedule({
+          notifications: [
+            {
+              title: "Ticto",
+              body: messageText,
+              id: Math.floor(Math.random() * 1000000) + 1,
+              schedule: { at: new Date(Date.now() + 100) },
+              sound: "som.mp3",
+              actionTypeId: "",
+              extra: null
+            }
+          ]
+        });
+      } catch (err) {
+        console.error('[CAPACITOR] Error scheduling notification:', err);
+      }
+    } else if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification("Ticto", {
+        body: messageText,
+        icon: 'logo_padded.png'
+      });
+    }
+
+    // 2. In-App Visual Banner
     showiOSFloatingBanner(messageText);
   }
 
@@ -152,11 +202,17 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   btnTestSingle.addEventListener('click', () => {
-    const data = getNextNotificationData(0);
-    sendNativeNotification(data);
+    requestNotificationPermissions();
+    triggerSingleTest();
   });
 
+  function triggerSingleTest() {
+    const data = getNextNotificationData(0);
+    sendNativeNotification(data);
+  }
+
   btnStartDispatch.addEventListener('click', () => {
+    requestNotificationPermissions();
     startSequence();
   });
 
