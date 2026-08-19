@@ -18,9 +18,9 @@ jobs:
         with:
           node-version: 18
 
-      - name: Install Capacitor & Create iOS App
+      - name: Install Dependencies & Prepare iOS Bundle
         run: |
-          npm install @capacitor/core @capacitor/cli @capacitor/ios @capacitor/local-notifications --save
+          npm install @capacitor/core @capacitor/cli @capacitor/ios @capacitor/local-notifications
           mkdir -p www
           cp index.html www/ 2>/dev/null || true
           cp style.css www/ 2>/dev/null || true
@@ -28,16 +28,20 @@ jobs:
           cp logo_padded.png www/ 2>/dev/null || true
           cp som.mp3 www/ 2>/dev/null || true
           npx cap add ios || true
+          npx cap copy ios || true
           npx cap sync ios || true
 
-      - name: Archive and Package IPA
+      - name: Inject App Icon & Compile Native Binary
         run: |
-          cd ios/App || exit 1
+          cd ios/App
+          mkdir -p App/Assets.xcassets/AppIcon.appiconset
+          cp ../../logo_padded.png App/Assets.xcassets/AppIcon.appiconset/AppIcon-512.png || true
+          
           xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos -archivePath App.xcarchive archive CODE_SIGNING_ALLOWED=NO || true
           mkdir -p Payload
           cp -r App.xcarchive/Products/Applications/App.app Payload/Ticto.app || cp -r App.xcarchive/Products/Applications/*.app Payload/Ticto.app || true
           zip -r Ticto.ipa Payload
-          echo "IPA Created Successfully!"
+          echo "IPA Native Build Finished!"
 
       - name: Upload Ticto.ipa Artifact
         uses: actions/upload-artifact@v4
